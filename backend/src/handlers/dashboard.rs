@@ -48,11 +48,11 @@ pub struct TimelineBucket {
     pub count: i64,
 }
 
-fn period_to_interval(period: &str) -> Result<&str, AppError> {
+fn period_to_hours(period: &str) -> Result<i64, AppError> {
     match period {
-        "24h" => Ok("24 hours"),
-        "7d" => Ok("7 days"),
-        "30d" => Ok("30 days"),
+        "24h" => Ok(24),
+        "7d" => Ok(168),
+        "30d" => Ok(720),
         _ => Err(AppError::BadRequest(
             "Invalid period. Use 24h, 7d, or 30d".into(),
         )),
@@ -75,7 +75,6 @@ pub async fn stats(
     Query(query): Query<StatsQuery>,
 ) -> Result<Json<DashboardStats>, AppError> {
     let period = query.period.as_deref().unwrap_or("24h");
-    let interval = period_to_interval(period)?;
 
     // Verify the user owns this project (the AuthUser extractor already verified JWT)
     let _project: Option<(Uuid,)> =
@@ -89,20 +88,18 @@ pub async fn stats(
         return Err(AppError::NotFound("Project not found".into()));
     }
 
-    let interval_str = interval.to_string();
-
     // Total event counts by level
-    let counts: Vec<(String, i64)> = sqlx::query_as(&format!(
+    let counts: Vec<(String, i64)> = sqlx::query_as(
         r#"
             SELECT level, COUNT(*) as count
             FROM events
             WHERE project_id = $1
-              AND created_at > NOW() - INTERVAL '{}'
+              AND created_at > NOW() - ($2 || ' hours')::INTERVAL
             GROUP BY level
             "#,
-        interval_str
-    ))
+    )
     .bind(query.project_id)
+    .bind(period_to_hours(period)?.to_string())
     .fetch_all(&state.db)
     .await?;
 
@@ -128,19 +125,19 @@ pub async fn stats(
     };
 
     // Top events
-    let top_events: Vec<TopEvent> = sqlx::query_as(&format!(
+    let top_events: Vec<TopEvent> = sqlx::query_as(
         r#"
             SELECT name, COUNT(*) as count
             FROM events
             WHERE project_id = $1
-              AND created_at > NOW() - INTERVAL '{}'
+              AND created_at > NOW() - ($2 || ' hours')::INTERVAL
             GROUP BY name
             ORDER BY count DESC
             LIMIT 10
             "#,
-        interval_str
-    ))
+    )
     .bind(query.project_id)
+    .bind(period_to_hours(period)?.to_string())
     .fetch_all(&state.db)
     .await?;
 
@@ -162,7 +159,7 @@ pub async fn timeline(
 ) -> Result<Json<Vec<TimelineBucket>>, AppError> {
     let period = query.period.as_deref().unwrap_or("24h");
     let bucket = query.bucket.as_deref().unwrap_or("hour");
-    let interval = period_to_interval(period)?;
+    let hours = period_to_hours(period)?;
     let trunc = bucket_to_trunc(bucket)?;
 
     // Verify the user owns this project
@@ -177,20 +174,36 @@ pub async fn timeline(
         return Err(AppError::NotFound("Project not found".into()));
     }
 
-    let buckets: Vec<TimelineBucket> = sqlx::query_as(&format!(
-        r#"
-            SELECT DATE_TRUNC('{}', created_at) as bucket_time, COUNT(*) as count
+    // trunc is validated by bucket_to_trunc() to only be "hour" or "day"
+    let query_str = match trunc {
+        "hour" => {
+            r#"
+            SELECT DATE_TRUNC('hour', created_at) as bucket_time, COUNT(*) as count
             FROM events
             WHERE project_id = $1
-              AND created_at > NOW() - INTERVAL '{}'
+              AND created_at > NOW() - ($2 || ' hours')::INTERVAL
             GROUP BY bucket_time
             ORDER BY bucket_time ASC
-            "#,
-        trunc, interval
-    ))
-    .bind(query.project_id)
-    .fetch_all(&state.db)
-    .await?;
+            "#
+        }
+        "day" => {
+            r#"
+            SELECT DATE_TRUNC('day', created_at) as bucket_time, COUNT(*) as count
+            FROM events
+            WHERE project_id = $1
+              AND created_at > NOW() - ($2 || ' hours')::INTERVAL
+            GROUP BY bucket_time
+            ORDER BY bucket_time ASC
+            "#
+        }
+        _ => unreachable!(),
+    };
+
+    let buckets: Vec<TimelineBucket> = sqlx::query_as(query_str)
+        .bind(query.project_id)
+        .bind(hours.to_string())
+        .fetch_all(&state.db)
+        .await?;
 
     Ok(Json(buckets))
 }

@@ -13,7 +13,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -96,8 +96,15 @@ async fn main() {
 }
 
 fn build_router(state: AppState) -> Router {
+    let allowed_origins =
+        std::env::var("CORS_ORIGINS").unwrap_or_else(|_| "http://localhost:4200".into());
+    let origins: Vec<_> = allowed_origins
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(AllowOrigin::list(origins))
         .allow_methods(Any)
         .allow_headers(Any);
 

@@ -19,15 +19,27 @@ pub async fn register(
         ));
     }
 
+    // Basic email format validation
+    let email = input.email.trim().to_lowercase();
+    if !email.contains('@') || !email.contains('.') || email.len() < 5 || email.len() > 254 {
+        return Err(AppError::BadRequest("Invalid email address".into()));
+    }
+
     if input.password.len() < 8 {
         return Err(AppError::BadRequest(
             "Password must be at least 8 characters".into(),
         ));
     }
 
+    if input.name.len() > 100 {
+        return Err(AppError::BadRequest(
+            "Name must be 100 characters or fewer".into(),
+        ));
+    }
+
     // Check if email already exists
     let existing: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM users WHERE email = $1")
-        .bind(&input.email)
+        .bind(&email)
         .fetch_optional(&state.db)
         .await?;
 
@@ -47,7 +59,7 @@ pub async fn register(
         "#,
     )
     .bind(user_id)
-    .bind(&input.email)
+    .bind(&email)
     .bind(&password_hash)
     .bind(&input.name)
     .bind(now)

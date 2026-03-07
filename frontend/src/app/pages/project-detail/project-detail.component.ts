@@ -138,7 +138,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
           id,
           name: 'Web Application',
           description: 'Main web application event tracking',
-          apiKey: 'pw_live_a1b2c3d4e5f6g7h8i9j0',
+          apiKey: 'pw_demo_xxxxxxxxxxxxxxxxxxxxxxxx',
           eventCount: 45230,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

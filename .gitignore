@@ -11,6 +11,15 @@ frontend/.angular/
 .env
 .env.local
 .env.*.local
+.env.production
+
+# Certificates & private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
 
 # IDE
 .idea/

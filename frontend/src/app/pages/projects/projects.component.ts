@@ -170,7 +170,7 @@ export class ProjectsComponent implements OnInit {
             id: 'proj_1',
             name: 'Web Application',
             description: 'Main web application event tracking',
-            apiKey: 'pw_live_a1b2c3d4e5f6g7h8i9j0',
+            apiKey: 'pw_demo_xxxxxxxxxxxxxxxxxxxxxxxx',
             eventCount: 45230,
             createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
             updatedAt: new Date().toISOString()
@@ -179,7 +179,7 @@ export class ProjectsComponent implements OnInit {
             id: 'proj_2',
             name: 'Mobile API',
             description: 'Mobile backend API event monitoring',
-            apiKey: 'pw_live_k1l2m3n4o5p6q7r8s9t0',
+            apiKey: 'pw_demo_yyyyyyyyyyyyyyyyyyyyyyyy',
             eventCount: 28150,
             createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
             updatedAt: new Date().toISOString()
@@ -188,7 +188,7 @@ export class ProjectsComponent implements OnInit {
             id: 'proj_3',
             name: 'Payment Service',
             description: 'Payment processing event pipeline',
-            apiKey: 'pw_live_u1v2w3x4y5z6a7b8c9d0',
+            apiKey: 'pw_demo_zzzzzzzzzzzzzzzzzzzzzzzz',
             eventCount: 12890,
             createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
             updatedAt: new Date().toISOString()

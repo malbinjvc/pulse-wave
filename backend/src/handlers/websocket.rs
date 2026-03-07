@@ -1,21 +1,51 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, State,
+        Path, Query, State,
     },
     response::Response,
 };
 use futures_util::{SinkExt, StreamExt};
+use jsonwebtoken::{decode, DecodingKey, Validation};
+use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::error::AppError;
+use crate::models::Claims;
 use crate::AppState;
+
+#[derive(Debug, Deserialize)]
+pub struct WsQuery {
+    pub token: Option<String>,
+}
 
 pub async fn ws_events(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
-) -> Response {
-    ws.on_upgrade(move |socket| handle_ws(socket, state, project_id))
+    Query(query): Query<WsQuery>,
+) -> Result<Response, AppError> {
+    // Validate JWT token from query parameter
+    let token = query.token.ok_or(AppError::Unauthorized)?;
+    let token_data = decode::<Claims>(
+        &token,
+        &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
+        &Validation::default(),
+    )?;
+
+    // Verify the user owns this project
+    let _project: Option<(Uuid,)> =
+        sqlx::query_as("SELECT id FROM projects WHERE id = $1 AND owner_id = $2")
+            .bind(project_id)
+            .bind(token_data.claims.sub)
+            .fetch_optional(&state.db)
+            .await?;
+
+    if _project.is_none() {
+        return Err(AppError::NotFound("Project not found".into()));
+    }
+
+    Ok(ws.on_upgrade(move |socket| handle_ws(socket, state, project_id)))
 }
 
 async fn handle_ws(socket: WebSocket, state: AppState, project_id: Uuid) {

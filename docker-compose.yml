@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: pulsewave
-      POSTGRES_PASSWORD: pulsewave
-      POSTGRES_DB: pulsewave
+      POSTGRES_USER: ${POSTGRES_USER:-pulsewave}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-pulsewave}
     ports:
       - "5432:5432"
     volumes:
@@ -18,10 +18,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,10 +34,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: postgres://pulsewave:pulsewave@postgres:5432/pulsewave
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: change-me-in-production-min-32-chars-long
+      DATABASE_URL: postgres://${POSTGRES_USER:-pulsewave}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-pulsewave}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (min 32 chars)}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200}
       HOST: 0.0.0.0
       PORT: 8080
       RUST_LOG: pulse_wave_api=debug,tower_http=debug
